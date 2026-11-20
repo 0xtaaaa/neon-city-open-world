@@ -69,4 +69,8 @@ createServer((request, response) => {
   createReadStream(file).pipe(response);
 }).listen(port, '127.0.0.1', () => {
   console.log(`game/ is on http://localhost:${port}`);
+  // The four staged screenshot scenes, one line each for a quick check.
+  for (const scene of ['start', 'play', 'chase', 'mission']) {
+    console.log(`shot ${scene}: http://localhost:${port}/index.html?shot=${scene}&seed=7`);
+  }
 });
