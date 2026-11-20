@@ -1,7 +1,11 @@
 // Procedural sound: every noise the game makes is synthesised with the
 // Web Audio API, so the game ships no audio files and works offline. The
 // engine hums with speed, sirens wail two tones, shots crack, and pickups
-// blip. Everything is guarded: no audio context, no sound, no crash.
+// blip. The radio is a tiny step sequencer: three stations, each a bass
+// line and an arpeggio over a minor scale, switched with R. Everything is
+// guarded: no audio context, no sound, no crash.
+
+import { RADIO } from './config.js';
 
 export function createAudio() {
   let ctx = null;
@@ -11,8 +15,14 @@ export function createAudio() {
   let sirenOsc = null;
   let sirenGain = null;
   let sirenLfo = null;
+  let rotorOsc = null;
+  let rotorGain = null;
   let muted = false;
   let unlocked = false;
+  // Radio sequencer state: which station, where the beat is.
+  let station = 0;
+  let beatTimer = 0;
+  let beatIndex = 0;
 
   function ensure() {
     if (ctx) return true;
@@ -53,6 +63,19 @@ export function createAudio() {
       sirenGain.connect(master);
       sirenOsc.start();
       sirenLfo.start();
+      // Helicopter rotor: a slow square chop through a lowpass filter.
+      rotorOsc = ctx.createOscillator();
+      rotorOsc.type = 'square';
+      rotorOsc.frequency.value = 13;
+      const rotorFilter = ctx.createBiquadFilter();
+      rotorFilter.type = 'lowpass';
+      rotorFilter.frequency.value = 260;
+      rotorGain = ctx.createGain();
+      rotorGain.gain.value = 0;
+      rotorOsc.connect(rotorFilter);
+      rotorFilter.connect(rotorGain);
+      rotorGain.connect(master);
+      rotorOsc.start();
       return true;
     } catch {
       ctx = null;
@@ -102,6 +125,34 @@ export function createAudio() {
     }
   }
 
+  // Minor-scale degrees, as semitone offsets from the root.
+  const SCALE = [0, 3, 5, 7, 10, 12, 15, 17, 19, 22, 24];
+
+  function noteFreq(root, degree) {
+    const semi = SCALE[((degree % SCALE.length) + SCALE.length) % SCALE.length]
+      + 12 * Math.floor(degree / SCALE.length);
+    return root * Math.pow(2, semi / 12);
+  }
+
+  /** One sequenced radio note, scheduled right now. */
+  function radioNote(freq, dur, type, volume) {
+    if (!ctx || muted) return;
+    try {
+      const osc = ctx.createOscillator();
+      osc.type = type;
+      osc.frequency.value = freq;
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(volume, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + dur);
+      osc.connect(gain);
+      gain.connect(master);
+      osc.start();
+      osc.stop(ctx.currentTime + dur);
+    } catch {
+      // Sound is garnish: never let it break the game.
+    }
+  }
+
   return {
     /** Call from any user gesture; browsers block audio before one. */
     unlock() {
@@ -127,6 +178,42 @@ export function createAudio() {
       } catch {
         // Ignore.
       }
+    },
+    /** Helicopter rotor chop, on while Air One is overhead. */
+    rotor(on) {
+      if (!ctx || muted) return;
+      try {
+        rotorGain.gain.value = on ? 0.04 : 0;
+      } catch {
+        // Ignore.
+      }
+    },
+    /** Advance the radio sequencer one frame; call every step. */
+    radio(dt) {
+      if (!ensure() || muted) return;
+      const stationDef = RADIO[station];
+      const beatLen = 60 / stationDef.tempo;
+      beatTimer -= dt;
+      while (beatTimer <= 0) {
+        beatTimer += beatLen;
+        const bassDeg = stationDef.bass[beatIndex % stationDef.bass.length];
+        const arpDeg = stationDef.arp[beatIndex % stationDef.arp.length];
+        radioNote(noteFreq(55, bassDeg), beatLen * 0.9, stationDef.wave, 0.16);
+        if (beatIndex % 2 === 0) {
+          radioNote(noteFreq(220, arpDeg), beatLen * 0.7, stationDef.wave, 0.07);
+        }
+        beatIndex += 1;
+      }
+    },
+    /** Switch to the next radio station; returns its name. */
+    nextStation() {
+      station = (station + 1) % RADIO.length;
+      beatIndex = 0;
+      beatTimer = 0;
+      return RADIO[station].name;
+    },
+    stationName() {
+      return RADIO[station].name;
     },
     shot() {
       noiseBurst(0.12, 0.5, 2800);

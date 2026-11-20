@@ -6,8 +6,11 @@
 // summary the judge reads, with the vendored make.fun library. The game
 // itself is a top-down open-world crime game: a city to explore on foot and
 // by car, traffic and pedestrians, cars to steal, a wanted level with police
-// who chase, four story missions, combat, a HUD with a live minimap, a start
-// screen and a save. Put 3 or 4 PNG or JPEG screenshots in screenshots/
+// who chase, ram and shoot, a police helicopter and roadblocks at high heat,
+// nine story missions (getaway, delivery, drops, escape, helicopter, street
+// race, heist, rescue, turf war), three weapon slots, respect ranks, a street
+// race, three radio stations, a day/night cycle with headlights, shops, a HUD
+// with a live minimap, a start screen and a save. Put 3 or 4 PNG or JPEG screenshots in screenshots/
 // (the first by name is the cover) and run it.
 //
 // Serve it locally with `node serve.ts`, then open http://localhost:8080.
