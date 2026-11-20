@@ -8,6 +8,11 @@ export const ACTION_PAUSE = 2;
 export const ACTION_ENTER = 4;
 export const ACTION_MELEE = 8;
 export const ACTION_MUTE = 16;
+export const ACTION_RADIO = 32;
+export const ACTION_SLOT1 = 64;
+export const ACTION_SLOT2 = 128;
+export const ACTION_SLOT3 = 256;
+export const ACTION_CYCLE = 512;
 
 const UP = new Set(['ArrowUp', 'KeyW']);
 const DOWN = new Set(['ArrowDown', 'KeyS']);
@@ -18,6 +23,11 @@ const PAUSE = new Set(['KeyP', 'Escape']);
 const ENTER = new Set(['KeyE']);
 const MELEE = new Set(['KeyF']);
 const MUTE = new Set(['KeyM']);
+const RADIO = new Set(['KeyR']);
+const SLOT1 = new Set(['Digit1']);
+const SLOT2 = new Set(['Digit2']);
+const SLOT3 = new Set(['Digit3']);
+const CYCLE = new Set(['KeyQ']);
 
 export function createInput(canvas) {
   const held = new Set();
@@ -37,6 +47,16 @@ export function createInput(canvas) {
       if (!event.repeat) actions |= ACTION_MELEE;
     } else if (MUTE.has(event.code)) {
       if (!event.repeat) actions |= ACTION_MUTE;
+    } else if (RADIO.has(event.code)) {
+      if (!event.repeat) actions |= ACTION_RADIO;
+    } else if (SLOT1.has(event.code)) {
+      if (!event.repeat) actions |= ACTION_SLOT1;
+    } else if (SLOT2.has(event.code)) {
+      if (!event.repeat) actions |= ACTION_SLOT2;
+    } else if (SLOT3.has(event.code)) {
+      if (!event.repeat) actions |= ACTION_SLOT3;
+    } else if (CYCLE.has(event.code)) {
+      if (!event.repeat) actions |= ACTION_CYCLE;
     } else {
       return;
     }

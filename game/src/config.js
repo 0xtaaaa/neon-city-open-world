@@ -37,7 +37,61 @@ export const CAR = {
   turnRate: 2.6,
   drag: 0.55,
   stealRadius: 46,
+  // Sport-tier cars (unlocked by respect) are longer, lower and faster.
+  sportMaxSpeed: 580,
+  sportAccel: 420,
+  taxiMaxSpeed: 430,
 };
+
+// Weapon slots: 1 pistol, 2 shotgun, 3 SMG. damage is per pellet/bullet,
+// spread is radians of cone, pellets is how many projectiles one trigger
+// pull fires, rate is seconds between pulls.
+export const WEAPONS = {
+  pistol: { name: 'Pistol', damage: 34, spread: 0.02, pellets: 1, rate: 0.22, bulletSpeed: 720, startAmmo: 24 },
+  shotgun: { name: 'Shotgun', damage: 16, spread: 0.24, pellets: 5, rate: 0.7, bulletSpeed: 640, startAmmo: 10 },
+  smg: { name: 'SMG', damage: 15, spread: 0.09, pellets: 1, rate: 0.09, bulletSpeed: 760, startAmmo: 40 },
+};
+export const WEAPON_ORDER = ['pistol', 'shotgun', 'smg'];
+
+// Respect: earned on jobs, races and turf. The rank gates the street race
+// prize multiplier and which cars the city parks for you.
+export const RESPECT_RANKS = [
+  { name: 'Nobody', at: 0 },
+  { name: 'Street', at: 100 },
+  { name: 'Hustler', at: 300 },
+  { name: 'Kingpin', at: 600 },
+  { name: 'Legend', at: 1000 },
+];
+export const RESPECT = { mission: 50, raceWin: 40, turf: 30, steal: 5, racePrize: 800 };
+
+// Street race: checkpoints around the city, three AI rivals, one prize.
+export const RACE = {
+  laps: 1,
+  checkpoints: 4,
+  rivalSpeed: 300,
+  rivalCount: 3,
+};
+
+// Police helicopter "Air One": appears at 4 stars and up, pins the wanted
+// level while its searchlight is on you, and never lands.
+export const HELI = {
+  minStars: 4,
+  speed: 340,
+  hoverHeight: 130,
+  lightRadius: 190,
+};
+
+// Day/night: a full cycle lasts 240 seconds of play; night darkens the
+// city, lights the windows and switches every car's headlights on.
+export const DAYNIGHT = { cycleSeconds: 240, nightAlpha: 0.42 };
+
+// Radio: three procedural stations, switched with R. Each station is a
+// mood: tempo in BPM plus a bass line and an arpeggio, as scale degrees.
+export const RADIO = [
+  { name: 'NEON FM', tempo: 112, bass: [0, 0, 7, 5], arp: [0, 3, 7, 12, 7, 3], wave: 'sawtooth' },
+  { name: 'STATIC ROCK', tempo: 140, bass: [0, 0, 3, 5], arp: [0, 12, 0, 7], wave: 'square' },
+  { name: 'NIGHT DRIVE', tempo: 84, bass: [0, 5, 3, 7], arp: [0, 7, 12, 15, 12, 7], wave: 'triangle' },
+];
 
 export const TRAFFIC = { cars: 14, peds: 26, pedSpeed: 55 };
 
@@ -55,7 +109,11 @@ export const POLICE = {
   width: 26,
   maxSpeed: 500,
   accel: 380,
-  ramDamage: 6,
+  // A ram stings (4 hp) and costs some speed, but five cars ramming in
+  // rotation must not halve the player's speed every half-second — that
+  // made a straight-line escape impossible and the player died in seconds.
+  ramDamage: 4,
+  ramCooldown: 4,
   shootRange: 420,
   shootCooldown: 1.1,
   bulletSpeed: 620,
@@ -77,6 +135,26 @@ export const MISSIONS = [
   {
     name: 'Lose the Heat',
     briefing: 'The cops are on you. Shake them and reach the hideout.',
+  },
+  {
+    name: 'Air One Escape',
+    briefing: 'Four stars and a helicopter overhead. Outrun Air One, reach the garage.',
+  },
+  {
+    name: 'Street King',
+    briefing: 'Win the street race: 4 checkpoints, 3 rivals, first across the line.',
+  },
+  {
+    name: 'The Big Score',
+    briefing: 'Three vault bags, two stars of heat. Grab them all, bring them home.',
+  },
+  {
+    name: 'Rescue Run',
+    briefing: 'Your crew is pinned down. Pick them up and get them to the hospital.',
+  },
+  {
+    name: 'Turf War',
+    briefing: 'Hold all three turf corners for the crew. The districts are watching.',
   },
 ];
 
@@ -103,6 +181,12 @@ export const PALETTE = {
   cash: '#ffd23f',
   ammo: '#ff9a3f',
   marker: '#ff4fd8',
+  heli: '#ff9a3f',
+  race: '#7dff5e',
+  shop: '#ffcf3f',
+  turf: '#b06fff',
+  night: '#0a1230',
+  headlight: 'rgba(255, 246, 201, 0.16)',
   hud: '#f2f5f8',
   hudDim: '#9aa5b1',
   star: '#ffd23f',

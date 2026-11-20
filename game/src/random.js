@@ -26,3 +26,20 @@ export function pick(random, array) {
 export function intBetween(random, min, max) {
   return min + Math.floor(random() * (max - min));
 }
+
+/** True with probability p (0..1), from the seeded random. */
+export function chance(random, p) {
+  return random() < p;
+}
+
+/** A shuffled copy of an array, from the seeded random. */
+export function shuffle(random, array) {
+  const copy = array.slice();
+  for (let i = copy.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(random() * (i + 1));
+    const tmp = copy[i];
+    copy[i] = copy[j];
+    copy[j] = tmp;
+  }
+  return copy;
+}

@@ -12,7 +12,7 @@
 import { STEP, SAVE_KEY } from './config.js';
 import { createRandom } from './random.js';
 import { createWorld, EVENT_BUSTED, EVENT_WASTED, EVENT_MISSION } from './world.js';
-import { ACTION_CONFIRM, ACTION_PAUSE, ACTION_ENTER, ACTION_MELEE, ACTION_MUTE, createInput } from './input.js';
+import { ACTION_CONFIRM, ACTION_PAUSE, ACTION_ENTER, ACTION_MELEE, ACTION_MUTE, ACTION_RADIO, ACTION_SLOT1, ACTION_SLOT2, ACTION_SLOT3, ACTION_CYCLE, createInput } from './input.js';
 import { createAudio } from './audio.js';
 import { createRenderer, SCREEN_TITLE, SCREEN_PLAY, SCREEN_PAUSED, SCREEN_BUSTED, SCREEN_WASTED, SCREEN_STORY } from './render.js';
 import { stageShot } from './shots.js';
@@ -53,6 +53,11 @@ function writeSave() {
       x: player.x,
       y: player.y,
       wanted: world.state.wanted,
+      // Respect, the weapon rack and the best race time travel with the save.
+      respect: world.state.respect,
+      weapons: player.weapons,
+      weaponSlot: player.weaponSlot,
+      raceBest: world.state.raceBest,
     }));
   } catch {
     // Storage can be off (private windows): the game then lasts one visit.
@@ -67,7 +72,13 @@ function applySave(save) {
   player.x = save.x;
   player.y = save.y;
   world.state.wanted = save.wanted;
-  world.startMission(Math.min(save.missionIndex, 3));
+  if (typeof save.respect === 'number') world.state.respect = save.respect;
+  if (save.weapons) {
+    player.weapons = save.weapons;
+    player.weaponSlot = typeof save.weaponSlot === 'number' ? save.weaponSlot : 0;
+  }
+  if (typeof save.raceBest === 'number') world.state.raceBest = save.raceBest;
+  world.startMission(Math.min(save.missionIndex, 8));
 }
 
 function runShot(name) {
@@ -110,7 +121,7 @@ function runGame() {
     input.mouse.down = false;
     accumulator = 0;
     screen = SCREEN_PLAY;
-    announce('Playing. Vex is waiting — steal a car and reach the garage.');
+    announce('Playing. Vex is waiting — steal a car and reach the garage. Nine jobs, one city.');
   }
 
   function pauseGame() {
@@ -121,6 +132,10 @@ function runGame() {
 
   function handleActions(actions) {
     if (actions & ACTION_MUTE) audio.setMuted(!audio.isMuted());
+    if (actions & ACTION_RADIO) {
+      const station = audio.nextStation();
+      announce(`Radio: ${station}.`);
+    }
     if (continuePressed) {
       continuePressed = false;
       if (screen === SCREEN_TITLE && save) startGame(false);
@@ -139,6 +154,10 @@ function runGame() {
   function buildInput(actions) {
     const drive = input.drive();
     const aim = renderer.screenToWorld(input.mouse.x, input.mouse.y);
+    let slot = null;
+    if (actions & ACTION_SLOT1) slot = 0;
+    else if (actions & ACTION_SLOT2) slot = 1;
+    else if (actions & ACTION_SLOT3) slot = 2;
     return {
       up: drive.up,
       down: drive.down,
@@ -150,6 +169,8 @@ function runGame() {
       shoot: input.mouse.down,
       aimX: aim.x,
       aimY: aim.y,
+      slot,
+      cycle: !!(actions & ACTION_CYCLE),
     };
   }
 

@@ -99,7 +99,32 @@ export function generateCity(random) {
     hospital: { x: 200, y: 2600 },
     // Where the player starts: on foot, outside the garage.
     playerStart: { x: 600, y: 280 },
+    // Shops: the gunsmith restocks weapon pickups, the diner heals,
+    // the clothes shop is pure Neon City flavour. All three are drawn
+    // on the map and the minimap.
+    shops: [
+      { x: 1000, y: 600, label: 'GUNSMITH', kind: 'guns' },
+      { x: 2200, y: 1400, label: 'DINER', kind: 'food' },
+      { x: 1400, y: 2200, label: 'CLOTHES', kind: 'clothes' },
+    ],
+    // The street race starts on the central crossroads.
+    raceStart: { x: 1800, y: 1800 },
+    // Turf War corners: hold all three and the districts are yours.
+    turfSpots: [
+      { x: 600, y: 2600, label: 'West Turf' },
+      { x: 2600, y: 600, label: 'East Turf' },
+      { x: 1400, y: 1400, label: 'Central Turf' },
+    ],
   };
+}
+
+/** The district name for a point, for the HUD and the turf war. */
+export function districtAt(x, y) {
+  const mid = WORLD.size / 2;
+  if (x < mid && y < mid) return 'Downtown';
+  if (x >= mid && y < mid) return 'Harbor';
+  if (x < mid && y >= mid) return 'Old Town';
+  return 'Southside';
 }
 
 /**
