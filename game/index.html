@@ -3,17 +3,97 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Neon City — Open World · 9 Missions, Street Races, Air One</title>
+<title>Neon City — Open-World Crime Game</title>
 <style>
-  html, body { margin: 0; height: 100%; overflow: hidden; background: #0b0e12; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #0b0e14; font-family: 'Segoe UI', system-ui, sans-serif; }
   #game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: crosshair; }
-  /* Read aloud, never shown: the status line screen readers announce. */
   #status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .overlay { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; flex-direction: column; background: rgba(5, 8, 16, 0.72); color: #f2f2f2; z-index: 10; text-align: center; }
+  .overlay h1 { font-size: 64px; margin: 0; letter-spacing: 6px; color: #ff2e63; text-shadow: 0 0 24px rgba(255, 46, 99, 0.7), 0 4px 0 #08d9d6; font-family: 'Courier New', monospace; }
+  .overlay h2 { font-size: 28px; margin: 8px 0 4px; color: #ffd166; letter-spacing: 3px; }
+  .overlay p { max-width: 560px; line-height: 1.5; color: #cfd6e4; margin: 8px 16px; }
+  .menu-btn { display: block; width: 280px; margin: 8px auto; padding: 13px 20px; font-size: 17px; font-weight: bold; color: #0b0e14; background: #ffd166; border: none; border-radius: 6px; cursor: pointer; letter-spacing: 1px; }
+  .menu-btn:hover { background: #ffdf8a; }
+  .menu-btn.secondary { background: #2c3547; color: #f2f2f2; }
+  .menu-btn.secondary:hover { background: #3a465e; }
+  .menu-btn.danger { background: #ff5b5b; color: #fff; }
+  .controls { font-family: 'Courier New', monospace; font-size: 14px; text-align: left; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; padding: 14px 22px; margin: 14px 0; line-height: 1.9; color: #e8ecf3; }
+  .controls b { color: #ffd166; }
+  #dialogue { position: fixed; left: 50%; transform: translateX(-50%); bottom: 110px; width: min(720px, 92vw); display: none; flex-direction: column; background: rgba(8, 12, 22, 0.92); border: 2px solid #ffd166; border-radius: 10px; padding: 16px 20px; color: #f2f2f2; z-index: 9; }
+  #dlg-speaker { color: #ff2e63; font-weight: bold; letter-spacing: 2px; margin-bottom: 6px; }
+  #dlg-text { font-size: 16px; line-height: 1.55; min-height: 48px; }
+  #dlg-hint { text-align: right; color: #888; font-size: 12px; margin-top: 6px; }
+  #shop { z-index: 11; }
+  .shop-btn { display: block; width: 340px; margin: 6px auto; padding: 11px 16px; font-size: 15px; text-align: left; background: #1c2536; color: #f2f2f2; border: 1px solid #3a465e; border-radius: 6px; cursor: pointer; }
+  .shop-btn:hover { background: #28344a; border-color: #ffd166; }
+  #shop-money { color: #7CFC00; font-weight: bold; font-size: 18px; }
+  #shop-msg { color: #ffd166; min-height: 22px; }
+  #dead-title { font-size: 72px; letter-spacing: 8px; }
+  .tag { color: #08d9d6; font-size: 13px; letter-spacing: 4px; margin-top: 18px; }
 </style>
 </head>
 <body>
-<canvas id="game" aria-label="Neon City: an open-world crime game. Drive, steal cars, dodge the police helicopter, win street races, and run nine jobs for Vex — heists, rescues and turf wars — with three guns, a radio and a living day-night city."></canvas>
+<canvas id="game" aria-label="Neon City: a top-down open-world crime game. Drive, fight, and finish missions."></canvas>
 <p id="status" role="status" aria-live="polite"></p>
+
+<div class="overlay" id="title">
+  <h1>NEON CITY</h1>
+  <p>An open-world crime game. Steal cars, dodge the cops, run the streets — and climb from Nobody to Legend.</p>
+  <button class="menu-btn" id="btn-new">▶ NEW GAME</button>
+  <button class="menu-btn secondary" id="btn-continue">CONTINUE</button>
+  <button class="menu-btn secondary" id="btn-title-help">CONTROLS</button>
+  <div class="controls">
+    <b>WASD / Arrows</b> — move / drive &nbsp;·&nbsp; <b>Mouse</b> — aim, <b>Click</b> — shoot<br>
+    <b>E</b> — enter car / talk / interact &nbsp;·&nbsp; <b>F</b> — interact &nbsp;·&nbsp; <b>R</b> — reload<br>
+    <b>1 / 2 / 3</b> — weapons &nbsp;·&nbsp; <b>Shift</b> — sprint &nbsp;·&nbsp; <b>Space</b> — handbrake<br>
+    <b>M</b> — radio station &nbsp;·&nbsp; <b>N</b> — mute &nbsp;·&nbsp; <b>P</b> — pause &nbsp;·&nbsp; <b>H</b> — help
+  </div>
+  <div class="tag">10 STORY MISSIONS · 5-STAR WANTED · STREET RACES · 3 RADIO STATIONS · DAY / NIGHT</div>
+</div>
+
+<div class="overlay" id="pause">
+  <h2>PAUSED</h2>
+  <p>The city waits for no one — except right now.</p>
+  <button class="menu-btn" id="btn-resume">RESUME</button>
+  <button class="menu-btn secondary" id="btn-restart">RESTART (NEW GAME)</button>
+  <button class="menu-btn secondary" id="btn-quit-title">SAVE &amp; QUIT TO TITLE</button>
+</div>
+
+<div class="overlay" id="help">
+  <h2>HOW TO PLAY</h2>
+  <div class="controls">
+    <b>On foot:</b> WASD to move, mouse to aim, click to shoot, Shift to sprint.<br>
+    <b>Driving:</b> W accelerate, S brake / reverse, A D steer, Space handbrake.<br>
+    <b>E</b> near a car steals it. <b>E</b> at the yellow ◆ starts a mission.<br>
+    <b>E</b> at a shop door opens it: gunsmith (weapons), spray shop (repair / paint).<br>
+    <b>E</b> at the checkered flag starts a street race ($100 entry).<br>
+    Crimes raise your wanted level — lose the cops by breaking line of sight.<br>
+    <b>M</b> changes the radio station, <b>N</b> mutes. Progress saves automatically.<br>
+    Earn respect to unlock missions and climb: Nobody → Hustler → Street → Made → Kingpin → Legend.
+  </div>
+  <button class="menu-btn" id="btn-help-close">GOT IT</button>
+</div>
+
+<div class="overlay" id="shop">
+  <h2 id="shop-title">Shop</h2>
+  <p id="shop-money"></p>
+  <div id="shop-items"></div>
+  <p id="shop-msg"></p>
+  <button class="menu-btn secondary" id="btn-shop-close">LEAVE</button>
+</div>
+
+<div id="dialogue">
+  <div id="dlg-speaker"></div>
+  <div id="dlg-text"></div>
+  <div id="dlg-hint">E ▸ continue</div>
+</div>
+
+<div class="overlay" id="dead">
+  <h1 id="dead-title">WASTED</h1>
+  <p id="dead-loss"></p>
+  <button class="menu-btn" id="btn-dead-respawn">BACK TO THE STREETS</button>
+</div>
+
 <script type="module" src="./src/main.js"></script>
 </body>
 </html>

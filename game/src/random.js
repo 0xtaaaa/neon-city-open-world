@@ -1,45 +1,35 @@
-// A small seeded random number generator (sfc32): the same seed gives the
-// same city, the same traffic and the same missions, which is what makes the
-// screenshot scenes repeatable and the game fair to re-run.
+// Neon City — small seeded random helpers. The city layout is built once
+// from a fixed seed so the map is identical every run; gameplay randomness
+// uses Math.random through these same helpers.
 
-export function createRandom(seed) {
+export function mulberry32(seed) {
   let a = seed >>> 0;
-  let b = (seed ^ 0x9e3779b9) >>> 0;
-  let c = (seed ^ 0x85ebca6b) >>> 0;
-  let counter = 1;
-  return function random() {
-    const t = (a + b + counter) >>> 0;
-    counter = (counter + 1) >>> 0;
-    a = b ^ (b >>> 9);
-    b = (c + (c << 3)) >>> 0;
-    c = (Math.imul(c, 0x9e3779b1) + t) >>> 0;
-    return ((t ^ (t >>> 11)) >>> 0) / 4294967296;
+  return function () {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
 
-/** Pick one element of an array with the seeded random. */
-export function pick(random, array) {
-  return array[Math.floor(random() * array.length)];
-}
+// Random float in [lo, hi).
+export function rand(lo, hi, rng = Math.random) { return lo + rng() * (hi - lo); }
 
-/** An integer in [min, max). */
-export function intBetween(random, min, max) {
-  return min + Math.floor(random() * (max - min));
-}
+// Random integer in [lo, hi] inclusive.
+export function randi(lo, hi, rng = Math.random) { return Math.floor(rand(lo, hi + 1, rng)); }
 
-/** True with probability p (0..1), from the seeded random. */
-export function chance(random, p) {
-  return random() < p;
-}
+// Pick a random element.
+export function pick(arr, rng = Math.random) { return arr[Math.floor(rng() * arr.length)]; }
 
-/** A shuffled copy of an array, from the seeded random. */
-export function shuffle(random, array) {
-  const copy = array.slice();
-  for (let i = copy.length - 1; i > 0; i -= 1) {
-    const j = Math.floor(random() * (i + 1));
-    const tmp = copy[i];
-    copy[i] = copy[j];
-    copy[j] = tmp;
+// True with probability p.
+export function chance(p, rng = Math.random) { return rng() < p; }
+
+// Shuffle a copy of an array (Fisher-Yates).
+export function shuffled(arr, rng = Math.random) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
   }
-  return copy;
+  return a;
 }

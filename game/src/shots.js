@@ -1,290 +1,117 @@
-// The screenshot scenes behind ?shot=start|play|chase|mission. Each one plays
-// the real rules forward from a fresh world for a fixed number of steps,
-// steered by a simple autopilot (walk to a car, steal it, drive the roads
-// to the mission marker, outrun the police), so the frame is what a short
-// game really looks like and the same seed always gives the same frame.
-//
-// Every scene arms the full HUD on purpose: weapon slots loaded, a respect
-// rank earned, the radio on, a mission banner up. The cover (start) is the
-// loudest frame we can stage — night, four stars, Air One overhead and a
-// roadblock ahead — because the judge reads the screenshots first.
+// Neon City — screenshot scene presets. Loading the game with
+// ?shot=cover|chase|mission|race skips the title screen and stages a
+// busy, readable scene for the dossier screenshots: the open world, the
+// HUD with its minimap, traffic, police, a mission and a race.
 
-import { STEP, WORLD } from './config.js';
-import { SCREEN_PLAY, SCREEN_TITLE } from './render.js';
+import { CFG } from './config.js';
+import { makeCar } from './vehicles.js';
+import { spawnPed, toast } from './entities.js';
+import { addWanted } from './state.js';
+import { startMission } from './missions.js';
+import { startRace } from './races.js';
+import { rand } from './random.js';
 
-const START_SECONDS = 16;
-const PLAY_SECONDS = 26;
-const CHASE_SECONDS = 14;
-const MISSION_SECONDS = 22;
+export function applyShotPreset(S, name) {
+  S.shotMode = name;
+  S.mode = 'playing';
+  const p = S.player;
+  // A decent starting wallet and respect so the HUD shows progress.
+  S.money = 2450;
+  S.respect = 340;
 
-function angleDiff(a, b) {
-  let d = (b - a) % (Math.PI * 2);
-  if (d > Math.PI) d -= Math.PI * 2;
-  if (d < -Math.PI) d += Math.PI * 2;
-  return d;
+  if (name === 'cover') {
+    // Day, driving down a main road with traffic, mission active.
+    S.dayTime = 100; // late morning
+    const car = makeCar(S, 1400, 1000, 0, { kind: 'sport', color: '#ff2e63', driver: 'player', maxSpeed: 560 });
+    p.onFoot = false; p.car = car; p.x = car.x; p.y = car.y; p.angle = 0;
+    car.speed = 320;
+    seedTraffic(S, 10, 1400, 1000, 700);
+    seedPeds(S, 8, 1400, 1000, 600);
+    S.completedMissions = ['fresh-start'];
+    startMission(S, 1); // The Pickup — dialogue shows, then objective
+    S.mode = 'playing'; // skip the intro dialogue for the shot
+    S.dialogue = null;
+    S.objectiveText = 'Deliver the package to Club Mirage';
+    S.objectivePos = { x: 1800, y: 1800 };
+    S.camera.x = car.x; S.camera.y = car.y;
+  } else if (name === 'chase') {
+    // Night, 4 stars, police cars + helicopter on the player's tail.
+    S.dayTime = 200; // deep night
+    const car = makeCar(S, 1800, 1400, 0, { kind: 'sport', color: '#08d9d6', driver: 'player', maxSpeed: 560 });
+    p.onFoot = false; p.car = car; p.x = car.x; p.y = car.y; p.angle = 0;
+    car.speed = 420;
+    S.wantedPts = 85; S.wanted = 4; S.wantedSeen = 0;
+    for (let i = 0; i < 4; i++) {
+      const a = rand(0, Math.PI * 2);
+      makeCar(S, car.x + Math.cos(a) * rand(220, 420), car.y + Math.sin(a) * rand(220, 420),
+        Math.atan2(car.y - (car.y + Math.sin(a) * 300), car.x - (car.x + Math.cos(a) * 300)),
+        { kind: 'cop', color: '#1a1a2e', driver: 'police', maxSpeed: 620 });
+    }
+    S.heli = { x: car.x + 120, y: car.y - 160, fireTimer: 2, angle: 0 };
+    seedTraffic(S, 6, 1800, 1400, 800);
+    S.objectiveText = 'Lose the cops — 4 stars';
+    S.camera.x = car.x; S.camera.y = car.y;
+  } else if (name === 'mission') {
+    // Day, on foot with a shotgun, hitmen closing in, objective ahead.
+    S.dayTime = 80;
+    p.x = 1000; p.y = 1400; p.onFoot = true; p.car = null;
+    p.weapons.shotgun.owned = true;
+    p.weapons.shotgun.mag = 6; p.weapons.shotgun.reserve = 24;
+    p.weapon = 'shotgun';
+    p.armor = 60;
+    S.completedMissions = ['fresh-start', 'pickup', 'getaway', 'qualifier', 'informant'];
+    for (let i = 0; i < 4; i++) {
+      S.peds.push({
+        x: p.x + rand(-260, 260), y: p.y + rand(-260, 260),
+        angle: 0, speed: 120, shirt: '#222', skin: '#e0ac69',
+        hp: 50, state: 'walk', kind: 'hitman', fireTimer: rand(0.5, 1.5), dead: false,
+      });
+    }
+    seedPeds(S, 6, 1000, 1400, 500);
+    seedTraffic(S, 4, 1000, 1400, 500);
+    S.objectiveText = 'Take out 6 hitmen';
+    S.objectivePos = { x: 1200, y: 1600 };
+    S.missionIndex = 8;
+    S.missionStep = 0;
+    S.missionData = { killsAtStart: S.stats.kills, timer: 0, collected: 0, hold: 0, spotted: 0, lost: 0 };
+    S.camera.x = p.x; S.camera.y = p.y;
+  } else if (name === 'race') {
+    // Dusk, mid-race against three rivals.
+    S.dayTime = 140; // golden dusk
+    startRace(S, { laps: 3, prize: CFG.RACE_WIN });
+    S.race.countdown = 0;
+    S.race.lap = 2;
+    S.race.nextCp = 4;
+    const car = p.car;
+    if (car) { car.x = 1800; car.y = 600; car.angle = 0; car.speed = 480; p.x = 1800; p.y = 600; }
+    const rivals = S.race.rivals;
+    rivals[0].x = 1900; rivals[0].y = 640; rivals[0].angle = 0; rivals[0].speed = 470; rivals[0].wp = 5;
+    rivals[1].x = 1700; rivals[1].y = 560; rivals[1].angle = 0; rivals[1].speed = 460; rivals[1].wp = 4;
+    rivals[2].x = 1650; rivals[2].y = 660; rivals[2].angle = 0; rivals[2].speed = 440; rivals[2].wp = 3;
+    seedTraffic(S, 4, 1800, 600, 600);
+    S.camera.x = 1800; S.camera.y = 600;
+  }
 }
 
-function idleInput() {
-  return { up: false, down: false, left: false, right: false, run: false, enter: false, melee: false, shoot: false };
+function seedTraffic(S, count, cx, cy, radius) {
+  for (let i = 0; i < count; i++) {
+    const a = rand(0, Math.PI * 2);
+    const d = rand(150, radius);
+    const x = cx + Math.cos(a) * d;
+    const y = cy + Math.sin(a) * d;
+    const car = makeCar(S, x, y, rand(0, Math.PI * 2), {
+      kind: Math.random() < 0.15 ? 'taxi' : 'sedan',
+      color: ['#c0392b', '#2980b9', '#f39c12', '#27ae60', '#ecf0f1'][i % 5],
+      driver: 'traffic',
+    });
+    car.targetSpeed = rand(120, 180);
+  }
 }
 
-/** Walk toward a point. */
-function walkInput(player, tx, ty) {
-  const want = Math.atan2(ty - player.y, tx - player.x);
-  const dx = Math.cos(want);
-  const dy = Math.sin(want);
-  return {
-    up: dy < -0.3,
-    down: dy > 0.3,
-    left: dx < -0.3,
-    right: dx > 0.3,
-    run: true,
-    enter: false,
-    melee: false,
-    shoot: false,
-  };
-}
-
-/** The road line nearest a coordinate, within 70 px, or null. */
-function nearLine(value) {
-  for (const line of WORLD.lines) {
-    if (Math.abs(line - value) < 70) return line;
+function seedPeds(S, count, cx, cy, radius) {
+  for (let i = 0; i < count; i++) {
+    const a = rand(0, Math.PI * 2);
+    const d = rand(120, radius);
+    spawnPed(S, cx + Math.cos(a) * d, cy + Math.sin(a) * d);
   }
-  return null;
-}
-
-// The road line closest to a coordinate, however far away it is.
-function nearestLine(value) {
-  let best = WORLD.lines[0];
-  let bestDist = Math.abs(WORLD.lines[0] - value);
-  for (const line of WORLD.lines) {
-    const dist = Math.abs(line - value);
-    if (dist < bestDist) {
-      best = line;
-      bestDist = dist;
-    }
-  }
-  return best;
-}
-
-/**
- * Where a car should aim next to reach (tx, ty) without cutting across
- * blocks: along its own road to the target's road, then along that road.
- * Targets are always intersections, so both legs are on roads.
- */
-function roadWaypoint(car, tx, ty) {
-  const vx = nearLine(car.x);
-  const hy = nearLine(car.y);
-  // Stay on the road the car is already on until it lines up with the
-  // target road, then turn at the intersection. Aiming straight at the
-  // target cuts the corner across a block and wedges the car into the
-  // building behind the intersection. The switch happens 120 px early so
-  // the turn arc ends on the target road's centreline, not its far edge.
-  if (vx !== null && Math.abs(car.y - ty) > 120) return { x: vx, y: ty };
-  if (hy !== null && Math.abs(car.x - tx) > 120) return { x: tx, y: hy };
-  if (vx === null && hy === null) {
-    // Knocked off the roads entirely (a police ram can do it): drive to
-    // the nearest road line first instead of cutting across the block.
-    const nx = nearestLine(car.x);
-    const ny = nearestLine(car.y);
-    return Math.abs(nx - car.x) < Math.abs(ny - car.y)
-      ? { x: nx, y: car.y }
-      : { x: car.x, y: ny };
-  }
-  return { x: tx, y: ty };
-}
-
-/** Drive a car toward a point along the roads, with a reverse when stuck. */
-function makeDriver() {
-  let stuckTime = 0;
-  let reversing = 0;
-  return function driveInput(car, tx, ty) {
-    if (reversing > 0) {
-      reversing -= STEP;
-      return { ...idleInput(), down: true };
-    }
-    if (Math.abs(car.speed) < 25) stuckTime += STEP;
-    else stuckTime = 0;
-    if (stuckTime > 1.5) {
-      stuckTime = 0;
-      reversing = 0.9;
-      return { ...idleInput(), down: true };
-    }
-    const waypoint = roadWaypoint(car, tx, ty);
-    const want = Math.atan2(waypoint.y - car.y, waypoint.x - car.x);
-    const diff = angleDiff(car.angle, want);
-    if (Math.abs(diff) > 2.2) {
-      // Facing away from the target: reverse and swing the nose around
-      // (a three-point turn) instead of ploughing into the nearest wall.
-      return { ...idleInput(), down: true, left: diff > 0, right: diff < 0 };
-    }
-    // The corner where this leg turns: brake on approach so the car is
-    // slow enough to make the 90-degree turn inside the intersection.
-    // A sport car needs ~350 px to shed speed from 580 to 100.
-    const vx = nearLine(car.x);
-    const corner = vx !== null && Math.abs(car.y - ty) > 120 ? { x: vx, y: ty } : null;
-    const cornerDist = corner ? Math.hypot(corner.x - car.x, corner.y - car.y) : Infinity;
-    const braking = (Math.abs(diff) > 0.5 && Math.abs(car.speed) > 120)
-      || (cornerDist < 700 && Math.abs(car.speed) > 100);
-    const sharp = Math.abs(diff) > 0.5;
-    const nearCorner = Math.hypot(waypoint.x - car.x, waypoint.y - car.y) < 240;
-    const slow = Math.abs(car.speed) < 60;
-    return {
-      up: (!sharp && !nearCorner) || slow,
-      down: braking,
-      // A fine steering deadzone (0.03 rad): a coarse one lets the car
-      // drift onto a road's edge, where its body clips the building
-      // corner and bounces forever instead of correcting to centreline.
-      left: diff < -0.03,
-      right: diff > 0.03,
-      run: false,
-      enter: false,
-      melee: false,
-      shoot: false,
-    };
-  };
-}
-
-/** Load every weapon slot and a respect rank, so the HUD reads full. */
-function armPlayer(state) {
-  state.player.weapons.shotgun.ammo = 12;
-  state.player.weapons.smg.ammo = 40;
-  state.player.weaponSlot = 1;
-  state.respect = 320;
-}
-
-/** Steal the staged car: walk to it, press E, drive on. */
-function stealStagedCar(world, state, parked) {
-  let entered = false;
-  for (let i = 0; i < 10 / STEP && !entered; i += 1) {
-    const d = Math.hypot(parked.x - state.player.x, parked.y - state.player.y);
-    if (d < 46) {
-      world.step(STEP, { ...idleInput(), enter: true }, null);
-      entered = !!state.player.inCar;
-    } else {
-      world.step(STEP, walkInput(state.player, parked.x, parked.y), null);
-    }
-  }
-  return entered;
-}
-
-/**
- * Set `world` to the named scene and return the screen to draw over it.
- * Any name but play, chase or mission is the cover scene.
- */
-export function stageShot(name, world) {
-  const state = world.state;
-  world.reset();
-
-  // Stage a sport car on the player's own road, just south of the start
-  // and facing south, so every scene begins with a fast theft and a drive.
-  const parked = state.cars.find((car) => car.tier === 'sport' && car.kind === 'parked')
-    ?? state.cars.find((car) => car.kind === 'parked');
-  if (parked) {
-    parked.x = state.player.x;
-    parked.y = state.player.y + 70;
-    parked.angle = Math.PI / 2;
-  }
-  // The staged player starts at full health with a few seconds of cover,
-  // so a five-star scene is a chase, not an instant arrest or a death.
-  state.player.health = 100;
-  state.player.invuln = 3;
-  armPlayer(state);
-
-  if (name !== 'play' && name !== 'chase' && name !== 'mission') {
-    // COVER: night, four stars, Air One overhead, a roadblock ahead.
-    // Mission 5 (Air One Escape) with the garage as the target.
-    state.timeOfDay = 0.72;
-    world.startMission(4);
-    if (!stealStagedCar(world, state, parked)) return { screen: SCREEN_TITLE };
-    const drive = makeDriver();
-    for (let i = 0; i < START_SECONDS / STEP; i += 1) {
-      // Flee to the far corner, straight through the roadblock line.
-      world.step(STEP, drive(state.player.inCar, 2600, 2600), null);
-    }
-    return { screen: SCREEN_PLAY };
-  }
-
-  if (!stealStagedCar(world, state, parked)) {
-    for (let i = 0; i < PLAY_SECONDS / STEP; i += 1) {
-      world.step(STEP, walkInput(state.player, state.missionTarget.x, state.missionTarget.y), null);
-    }
-    return { screen: SCREEN_PLAY };
-  }
-
-  const drive = makeDriver();
-
-  if (name === 'chase') {
-    // Five stars at dusk: helicopter, roadblocks, sirens, full heat.
-    state.timeOfDay = 0.68;
-    world.startMission(3);
-    world.addWanted(5);
-    for (let i = 0; i < CHASE_SECONDS / STEP; i += 1) {
-      let nearest = null;
-      let nearestD = Infinity;
-      for (const car of state.cars) {
-        if (car.driver !== 'police' || car.roadblock) continue;
-        const d = Math.hypot(car.x - state.player.x, car.y - state.player.y);
-        if (d < nearestD) {
-          nearestD = d;
-          nearest = car;
-        }
-      }
-      let tx = state.player.x + 800;
-      let ty = state.player.y;
-      if (nearest) {
-        let best = null;
-        let bestD = -1;
-        for (const lineX of WORLD.lines) {
-          for (const lineY of WORLD.lines) {
-            const d = Math.hypot(lineX - nearest.x, lineY - nearest.y);
-            if (d > bestD) {
-              bestD = d;
-              best = { x: lineX, y: lineY };
-            }
-          }
-        }
-        tx = best.x;
-        ty = best.y;
-      }
-      world.step(STEP, drive(state.player.inCar, tx, ty), null);
-    }
-    return { screen: SCREEN_PLAY };
-  }
-
-  if (name === 'mission') {
-    // The Big Score: three vault bags under two stars of heat.
-    world.startMission(6);
-    for (let i = 0; i < MISSION_SECONDS / STEP; i += 1) {
-      const bags = state.pickups.filter((p) => p.kind === 'vault');
-      if (bags.length === 0) break;
-      // Chase the nearest bag; the target marker follows it.
-      let bag = bags[0];
-      let bestD = Infinity;
-      for (const b of bags) {
-        const d = Math.hypot(b.x - state.player.x, b.y - state.player.y);
-        if (d < bestD) {
-          bestD = d;
-          bag = b;
-        }
-      }
-      world.step(STEP, drive(state.player.inCar, bag.x, bag.y), null);
-    }
-    return { screen: SCREEN_PLAY };
-  }
-
-  // Play: the street race. Drive to the chequered line, race the rivals
-  // through the checkpoints, all in daylight.
-  state.timeOfDay = 0.3;
-  world.startMission(5);
-  for (let i = 0; i < PLAY_SECONDS / STEP; i += 1) {
-    if (state.race.active) {
-      const point = state.race.checkpoints[state.race.next];
-      if (!point) break;
-      world.step(STEP, drive(state.player.inCar, point.x, point.y), null);
-    } else {
-      world.step(STEP, drive(state.player.inCar, state.city.raceStart.x, state.city.raceStart.y), null);
-    }
-  }
-  return { screen: SCREEN_PLAY };
 }
