@@ -1,3 +1,36 @@
+// Neon City v3 - dossier entrypoint for the make.fun gta6-01 bounty.
+//
+// This file is the entrypoint that hands the game in. It does no game logic
+// itself: the game lives in game/ (game/index.html plus its ES modules, a
+// top-down 2D open-world crime game written from scratch for this entry) and
+// the screenshots live in screenshots/. What this program does is assemble
+// the submission package the judge reads.
+//
+// What it builds:
+//   - Copies game/ and screenshots/ next to this file into the output
+//     directory, so the shipped game is exactly the files in this repo.
+//   - Writes <output>/dossier.json via the vendored make.fun library
+//     (vendor/makefun-game.ts), a summary of the entry: the game files,
+//     the screenshots (the first by name is the cover), and the entry text.
+//   - Enforces the scorer's caps while it builds: at most 4 screenshots of
+//     at most 256 KiB each, at most 993 game files totalling at most 48 MiB,
+//     and no game path longer than 1000 bytes. A package over any cap is
+//     refused here instead of at the judge.
+//
+// How to run it (outside the grader's container, where MAKEFUN_OUTPUT_DIR
+// stands in for /output):
+//   mkdir -p out && MAKEFUN_OUTPUT_DIR=out node main.ts
+// and serve the game locally with `node serve.ts`, then open
+// http://localhost:8080.
+//
+// The game it hands in is Neon City v3: a top-down 2D open-world crime game
+// with a 9x9 road-grid city, drivable cars, 10 story missions, a wanted
+// system with police chases and an Air One helicopter, pistol/shotgun/SMG
+// weapons with a gunsmith shop, respect ranks from Nobody to Legend, street
+// races against three AI rivals, three radio stations, a 240-second
+// day/night cycle, and save/load. No library, no network request: a desktop
+// browser loads it offline.
+
 // A working gta6-01 entry (Node 22, standard library only): the game is this directory's
 // game/ folder, plain static files a desktop browser loads offline (game/index.html and its ES
 // modules, no library and no network request), and the program hands it in. It copies game/ and
